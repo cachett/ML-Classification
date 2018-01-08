@@ -6,16 +6,10 @@ import numpy as np
 from sklearn.datasets.samples_generator import make_blobs
 style.use('ggplot')
 
-X, y = make_blobs(n_samples=50, centers = 3, n_features=2)
-# X = np.array([[1,2],[1.5,1.8],[5,8],[1,0.6],[8,8],[9,11],[8,2],[10,2],[9,3]])
-colors = 100*["g","r","c","b","k","o"]
-# plt.scatter(X[:,0], X[:,1], color="b", s=150, linewidths=5, marker="o")
-# plt.show()
-
 
 
 class MeanShift:
-    def __init__(self, radius=None, radius_norm_step=80):
+    def __init__(self, radius=None, radius_norm_step=40):
         self.radius = radius
         self.radius_norm_step = radius_norm_step
 
@@ -24,9 +18,13 @@ class MeanShift:
         if self.radius == None:
             all_data_centroid = np.average(data, axis=0)
             all_data_norm = np.linalg.norm(all_data_centroid)
-            self.radius = all_data_norm / self.radius_norm_step
-        weights = [i**2 for i in range(self.radius_norm_step)][::-1]
-
+            self.radius = (all_data_norm / self.radius_norm_step)
+            if self.radius < 0.1:
+                self.radius += 0.1
+            print(self.radius)
+        weights = [ int(i**3 / 1000)+ 1 for i in range(self.radius_norm_step-1)][::-1]
+        weights.append(0)
+        #print(weights)
 
         centroids = {}
         for i in range(len(data)):
@@ -48,6 +46,7 @@ class MeanShift:
                     weight_index = int(distance/self.radius)
                     if weight_index > self.radius_norm_step-1:
                         weight_index = self.radius_norm_step-1
+                    #print(weights[weight_index])
                     to_add = (weights[weight_index])*[feature_set]
                     in_bandwidth += to_add
 
@@ -57,21 +56,26 @@ class MeanShift:
 
             uniques = sorted(list(set(new_centroids)))
 
-            #Here we're popping the centroids which are close enough
+            opti = False
+
+
+
+
+            #Here we're popping the centroids which are close enough //TODO
             to_pop = []
             for i in uniques:
                 for ii in uniques:
                     if i == ii:
                         pass
-                    elif np.linalg.norm(np.array(i)-np.array(ii)) <= 0.01: #tolerence
+                    elif np.linalg.norm(np.array(i)-np.array(ii)) <= 0.2 and ii not in to_pop and i not in to_pop: #tolerence
                         to_pop.append(ii)
                         break
-
             for i in to_pop:
                 try:
                     uniques.remove(i)
                 except:
                     pass
+
 
             prev_centroids = dict(centroids)
             centroids = {}
@@ -103,16 +107,22 @@ class MeanShift:
         classification = distances.index(min(distances))
         return classification
 
-clf = MeanShift()
-clf.fit(X)
+for _ in range(10):
+    X, y = make_blobs(n_samples=100, centers = 3, n_features=2)
+    # X = np.array([[1,2],[1.5,1.8],[5,8],[1,0.6],[8,8],[9,11],[8,2],[10,2],[9,3]])
+    colors = 100*["g","r","c","b","k"]
+    # plt.scatter(X[:,0], X[:,1], color="b", s=150, linewidths=5, marker="o")
+    # plt.show()
+    clf = MeanShift()
+    clf.fit(X)
 
-centroids = clf.centroids
+    centroids = clf.centroids
 
-for classification in clf.classifications:
-    color = colors[classification]
-    for feature_set in clf.classifications[classification]:
-        plt.scatter(feature_set[0], feature_set[1], marker='o', color = color, s=150)
+    for classification in clf.classifications:
+        color = colors[classification]
+        for feature_set in clf.classifications[classification]:
+            plt.scatter(feature_set[0], feature_set[1], marker='o', color = color, s=150)
 
-for c in range(len(centroids)):
-    plt.scatter(centroids[c][0], centroids[c][1], color="k", s=150, linewidths=5, marker="x")
-plt.show()
+    for c in range(len(centroids)):
+        plt.scatter(centroids[c][0], centroids[c][1], color="k", s=150, linewidths=5, marker="x")
+    plt.show()
